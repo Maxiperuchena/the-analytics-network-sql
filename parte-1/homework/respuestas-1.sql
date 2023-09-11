@@ -1,43 +1,144 @@
 -- ## Semana 1 - Parte A
-
+-- Alumno = Maximiliano Peruchena
 
 -- 1. Mostrar todos los productos dentro de la categoria electro junto con todos los detalles.
-select * from stg.product_master where categoria = 'Electro'
+
+select 	* 
+from stg.product_master 
+where category = 'Electro'
 
 -- 2. Cuales son los producto producidos en China?
 
+select 	* 
+from stg.product_master 
+where origin = 'China'
+
 -- 3. Mostrar todos los productos de Electro ordenados por nombre.
+
+select 	* 
+from stg.product_master 
+where category = 'Electro' 
+order by name asc
 
 -- 4. Cuales son las TV que se encuentran activas para la venta?
 
+select 	* 
+from stg.product_master
+where subcategory = 'TV' and is_active = TRUE 
+
 -- 5. Mostrar todas las tiendas de Argentina ordenadas por fecha de apertura de las mas antigua a la mas nueva.
+
+select 	* 
+from stg.store_master
+where country = 'Argentina'
+order by start_date asc
 
 -- 6. Cuales fueron las ultimas 5 ordenes de ventas?
 
--- 7. Mostrar los primeros 10 registros de el conteo de trafico por Super store ordenados por fecha.
+select 
+	order_number,
+	date
+from stg.order_line_sale
+order by date desc
+limit 5
+
+-- 7. Mostrar los primeros 10 registros del conteo de trafico por Super store ordenados por fecha.
+
+select 
+	*
+from stg.super_store_count
+order by date desc
+limit 10
 
 -- 8. Cuales son los producto de electro que no son Soporte de TV ni control remoto.
 
+select 	* 
+from stg.product_master 
+where category = 'Electro' and subsubcategory <> 'Soporte' and subsubcategory <> 'Control remoto'
+
 -- 9. Mostrar todas las lineas de venta donde el monto sea mayor a $100.000 solo para transacciones en pesos.
+
+select 
+	*
+from stg.order_line_sale
+where sale > 100000 and currency = 'ARS'
 
 -- 10. Mostrar todas las lineas de ventas de Octubre 2022.
 
+select 
+	*
+from stg.order_line_sale
+where date >= '2022-10-01' AND date <= '2022-10-31'
+order by date asc
+
 -- 11. Mostrar todos los productos que tengan EAN.
+
+select 	* 
+from stg.product_master
+where ean is not null
 
 -- 12. Mostrar todas las lineas de venta que que hayan sido vendidas entre 1 de Octubre de 2022 y 10 de Noviembre de 2022.
 
+select 
+	order_number,
+	date
+from stg.order_line_sale
+where date >= '2022-10-01' AND date <= '2022-11-10'
+order by date asc
+
+-- otra forma:
+select 
+	order_number,
+	date
+from stg.order_line_sale
+where date between '2022-10-01' AND '2022-11-10'
+order by date asc
 
 -- ## Semana 1 - Parte B
 
 -- 1. Cuales son los paises donde la empresa tiene tiendas?
 
+select 
+distinct(country)
+from stg.store_master
+
 -- 2. Cuantos productos por subcategoria tiene disponible para la venta?
+
+select distinct 
+	 subcategory,
+	 count (product_code)
+from stg.product_master
+where is_active = 'true'
+group by subcategory
+
 
 -- 3. Cuales son las ordenes de venta de Argentina de mayor a $100.000?
 
+select 
+	*
+from stg.order_line_sale s
+left join stg.store_master sm 
+on s.store = sm.store_id
+where sale > 100000 and country = 'Argentina'
+
+
 -- 4. Obtener los decuentos otorgados durante Noviembre de 2022 en cada una de las monedas?
 
+select 
+	currency,
+	sum(promotion) descuentos
+from stg.order_line_sale
+where date >= '2022-11-01' AND date <= '2022-11-30'
+group by currency
+
 -- 5. Obtener los impuestos pagados en Europa durante el 2022.
+
+select 
+	sum(tax)
+from stg.order_line_sale s
+left join stg.store_master sm
+on s.store = sm.store_id
+where date >= '2022-01-01' AND date <= '2022-12-31' and country = 'Spain'
 
 -- 6. En cuantas ordenes se utilizaron creditos?
 
