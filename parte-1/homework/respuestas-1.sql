@@ -142,28 +142,104 @@ where date >= '2022-01-01' AND date <= '2022-12-31' and country = 'Spain'
 
 -- 6. En cuantas ordenes se utilizaron creditos?
 
+select distinct count(order_number)
+from stg.order_line_sale
+where credit is not null
+
 -- 7. Cual es el % de descuentos otorgados (sobre las ventas) por tienda?
 
--- 8. Cual es el inventario promedio por dia que tiene cada tienda?
+select store, avg((promotion / sale)*100)
+from stg.order_line_sale
+group by store 
+
+-- 8. Cual es el inventario promedio por dia que tiene cada tienda? 
+
+select store_id, date,item_id, ((final + initial)/2) as inv_promedio
+from stg.inventory
 
 -- 9. Obtener las ventas netas y el porcentaje de descuento otorgado por producto en Argentina.
 
+select 
+	product,
+	sum((sale - promotion - tax - credit)) as ventas_netas,
+	avg((promotion / sale)*100) as porc_descuento
+from stg.order_line_sale ols
+left join stg.store_master sm
+on ols.store = sm.store_id
+where country = 'Argentina'
+group by product
+
+
 -- 10. Las tablas "market_count" y "super_store_count" representan dos sistemas distintos que usa la empresa para contar la cantidad de gente que ingresa a tienda, uno para las tiendas de Latinoamerica y otro para Europa. Obtener en una unica tabla, las entradas a tienda de ambos sistemas.
+/VERIFICAR/
+select 
+	store_id,
+	TO_DATE((date)::text, 'YYYYMMDD') as fecha,
+	traffic
+from stg.market_count
+union
+select 
+	store_id,
+	TO_DATE((date)::text, 'YYYY-MM-DD') as fecha,
+	traffic
+from stg.super_store_count ssc
+order by fecha, store_id
 
 -- 11. Cuales son los productos disponibles para la venta (activos) de la marca Phillips?
 
+select 
+	*
+from stg.product_master
+where is_active = 'true'
+and name like '%PHILIPS%'
+
+
 -- 12. Obtener el monto vendido por tienda y moneda y ordenarlo de mayor a menor por valor nominal de las ventas (sin importar la moneda).
+
+select 
+	store,
+	sum(sale),
+	currency
+from stg.order_line_sale
+group by store, currency
+order by sum(sale) desc
 
 -- 13. Cual es el precio promedio de venta de cada producto en las distintas monedas? Recorda que los valores de venta, impuesto, descuentos y creditos es por el total de la linea.
 
+select 
+	product,
+	currency,
+	avg( ( sale + coalesce( promotion , 0 ) - coalesce( tax , 0 ) + coalesce( credit, 0 ) ) / quantity ) as precio_prom_vta
+from stg.order_line_sale
+group by product, currency
+order by product asc , currency asc
+
+
 -- 14. Cual es la tasa de impuestos que se pago por cada orden de venta?
 
+
+select 
+	order_number,
+	((sum( coalesce( tax , 0 ) ) / sum ( sale )) * 100) as tasa_impuesto
+from stg.order_line_sale
+group by order_number
 
 -- ## Semana 2 - Parte A
 
 -- 1. Mostrar nombre y codigo de producto, categoria y color para todos los productos de la marca Philips y Samsung, mostrando la leyenda "Unknown" cuando no hay un color disponible
 
+
+select 
+	name,
+	product_code,
+	category,
+	coalesce(color, 'Unknown') 
+from stg.product_master
+where upper(name) like '%PHILIPS%' or upper(name) like '%SAMSUNG%'  
+
 -- 2. Calcular las ventas brutas y los impuestos pagados por pais y provincia en la moneda correspondiente.
+
+
 
 -- 3. Calcular las ventas totales por subcategoria de producto para cada moneda ordenados por subcategoria y moneda.
   
