@@ -239,15 +239,75 @@ where upper(name) like '%PHILIPS%' or upper(name) like '%SAMSUNG%'
 
 -- 2. Calcular las ventas brutas y los impuestos pagados por pais y provincia en la moneda correspondiente.
 
+select 
+	country,
+	province,
+	sum(sale) as Ventas_Brutas,
+	sum(tax) as Impuestos,
+	currency
+from stg.order_line_sale ols
+left join stg.product_master pm
+on ols.product = pm.product_code
+left join stg.store_master sm
+on ols.store = sm.store_id
+group by country , province, currency
+order by country desc, province desc, currency desc
 
 
 -- 3. Calcular las ventas totales por subcategoria de producto para cada moneda ordenados por subcategoria y moneda.
+
+select 
+	subcategory,
+	sum(sale) as Ventas,
+	currency
+from stg.order_line_sale ols
+left join stg.product_master pm
+on ols.product = pm.product_code
+left join stg.store_master sm
+on ols.store = sm.store_id
+group by subcategory , currency
+order by subcategory desc, currency desc
+
   
 -- 4. Calcular las unidades vendidas por subcategoria de producto y la concatenacion de pais, provincia; usar guion como separador y usarla para ordernar el resultado.
-  
+
+select 
+	CONCAT(country, ' - ', province) as codigo_regional,	
+	subcategory,
+	sum(quantity) as Unidades_vendidas
+from stg.order_line_sale ols
+left join stg.product_master pm
+on ols.product = pm.product_code
+left join stg.store_master sm
+on ols.store = sm.store_id
+group by codigo_regional, subcategory
+order by codigo_regional desc, subcategory desc
+
 -- 5. Mostrar una vista donde sea vea el nombre de tienda y la cantidad de entradas de personas que hubo desde la fecha de apertura para el sistema "super_store".
-  
+
+create or replace view stg.vw_trafico as
+select 
+	name,
+	sum(traffic)
+from stg.store_master sm 
+inner join stg.super_store_count ssc
+on (sm.store_id = ssc.store_id) and (sm.start_date <= cast(ssc.date as date))
+group by name
+order by name
+
+
 -- 6. Cual es el nivel de inventario promedio en cada mes a nivel de codigo de producto y tienda; mostrar el resultado con el nombre de la tienda.
+
+select 
+	name,
+	item_id,
+	to_char(date, 'MM') Mes,
+	avg((initial + final)/2)
+from stg.inventory i
+left join stg.store_master sm
+on i.store_id = sm.store_id
+group by name, item_id, Mes
+order by name,item_id,  Mes
   
 -- 7. Calcular la cantidad de unidades vendidas por material. Para los productos que no tengan material usar 'Unknown', homogeneizar los textos si es necesario.
   
