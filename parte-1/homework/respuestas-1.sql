@@ -310,13 +310,71 @@ group by name, item_id, Mes
 order by name,item_id,  Mes
   
 -- 7. Calcular la cantidad de unidades vendidas por material. Para los productos que no tengan material usar 'Unknown', homogeneizar los textos si es necesario.
-  
+PREGUNTAR
+select
+	trim(upper(coalesce(pm.material,'Unknown'))) as Material,
+  	sum(quantity)
+from stg.order_line_sale ols
+left join stg.product_master pm
+on ols.product = pm.product_code
+group by Material
+
 -- 8. Mostrar la tabla order_line_sales agregando una columna que represente el valor de venta bruta en cada linea convertido a dolares usando la tabla de tipo de cambio.
-  
+
+select
+	ols.*,
+	case
+		when currency = 'ARS' then (sale * fx_rate_usd_peso)
+		when currency = 'EUR' then (sale * fx_rate_usd_eur) 
+		else sale 
+	end VentaUSD
+from stg.order_line_sale ols
+left join stg.monthly_average_fx_rate fx
+on date_trunc('month',ols.date) = fx.month
+
 -- 9. Calcular cantidad de ventas totales de la empresa en dolares.
+
+select
+	ols.*,
+	case
+		when currency = 'ARS' then (sale * fx_rate_usd_peso)
+		when currency = 'EUR' then (sale * fx_rate_usd_eur) 
+		else sale 
+	end VentaUSD
+from stg.order_line_sale ols
+left join stg.monthly_average_fx_rate fx
+on date_trunc('month',ols.date) = fx.month
+
   
 -- 10. Mostrar en la tabla de ventas el margen de venta por cada linea. Siendo margen = (venta - descuento) - costo expresado en dolares.
-  
+
+with ventas_usd as (   -- utilizo un cte para crear la tabla ventas_usd y luego calcular el margen de ventas
+select
+	ols.*,
+	case
+		when currency = 'ARS' then (coalesce(sale,0) * fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(sale,0) * fx_rate_usd_eur) 
+		else sale 
+	end VentaUSD,
+	case
+		when currency = 'ARS' then (coalesce(promotion,0) * fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(promotion,0) * fx_rate_usd_eur) 
+		else promotion 
+	end DescuentoUSD,
+	product_cost_usd
+from stg.order_line_sale ols
+left join stg.monthly_average_fx_rate fx
+on date_trunc('month',ols.date) = fx.month
+left join stg.cost c
+on ols.product = c.product_code
+)
+select
+	ventas_usd.*,
+	ventaUSD - DescuentoUSD - product_cost_usd as MargenVentaUSD
+from ventas_usd
+
+
+
 -- 11. Calcular la cantidad de items distintos de cada subsubcategoria que se llevan por numero de orden.
   
 
