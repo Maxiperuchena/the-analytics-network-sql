@@ -373,14 +373,34 @@ select
 	ventaUSD - DescuentoUSD - product_cost_usd as MargenVentaUSD
 from ventas_usd
 
-
-
 -- 11. Calcular la cantidad de items distintos de cada subsubcategoria que se llevan por numero de orden.
-  
+--CONSULTAR. VALORES REPETIDOS! en order "M202307319089" hay 2 productos "p200089"
+
+select 
+	order_number,
+	sum(case when subcategory = 'Accesorios' then 1 else 0 end) as qty_Accesorios,
+	sum(case when subcategory = 'Computadoras' then 1 else 0 end) as qty_Computadoras,
+	sum(case when subcategory = 'Audio' then 1 else 0 end) as qty_Audio,
+	sum(case when subcategory = 'Gaming' then 1 else 0 end) as qty_Gaming,
+	sum(case when subcategory = 'Hombre' then 1 else 0 end) as qty_Hombre,
+	sum(case when subcategory = 'Informatica' then 1 else 0 end) as qty_Informatica,
+	sum(case when subcategory = 'TV' then 1 else 0 end) as qty_TV
+from stg.order_line_sale ols
+left join stg.product_master pm
+on ols.product = pm.product_code
+group by order_number
+order by order_number
 
 -- ## Semana 2 - Parte B
 
 -- 1. Crear un backup de la tabla product_master. Utilizar un esquema llamada "bkp" y agregar un prefijo al nombre de la tabla con la fecha del backup en forma de numero entero.
+
+create schema bkp
+;
+select 
+	*
+into bkp.product_master_09_23_2023
+from stg.product_master
   
 -- 2. Hacer un update a la nueva tabla (creada en el punto anterior) de product_master agregando la leyendo "N/A" para los valores null de material y color. Pueden utilizarse dos sentencias.
   
