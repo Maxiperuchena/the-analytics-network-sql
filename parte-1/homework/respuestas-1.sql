@@ -403,22 +403,92 @@ into bkp.product_master_09_23_2023
 from stg.product_master
   
 -- 2. Hacer un update a la nueva tabla (creada en el punto anterior) de product_master agregando la leyendo "N/A" para los valores null de material y color. Pueden utilizarse dos sentencias.
+
+update bkp.product_master_09_23_2023 
+set color = 'N/A' 
+where color is null 
+update bkp.product_master_09_23_2023 
+set material = 'N/A' 
+where material is null 
   
 -- 3. Hacer un update a la tabla del punto anterior, actualizando la columa "is_active", desactivando todos los productos en la subsubcategoria "Control Remoto".
-  
+
+update bkp.product_master_09_23_2023 
+set is_active = false 
+where subsubcategory = 'Control remoto'
+
 -- 4. Agregar una nueva columna a la tabla anterior llamada "is_local" indicando los productos producidos en Argentina y fuera de Argentina.
+
+alter table bkp.product_master_09_23_2023 
+add is_local boolean
+;
+update bkp.product_master_09_23_2023 
+set is_local = true
+where upper(origin) = 'ARGENTINA';
+update bkp.product_master_09_23_2023 
+set is_local = false
+where upper(origin) <> 'ARGENTINA';
+
   
 -- 5. Agregar una nueva columna a la tabla de ventas llamada "line_key" que resulte ser la concatenacion de el numero de orden y el codigo de producto.
-  
+
+drop table if exists bkp.order_line_sale_09_23_2023 ;
+
+select 
+	*
+into bkp.order_line_sale_09_23_2023
+from stg.order_line_sale 
+;
+alter table bkp.order_line_sale_09_23_2023
+add line_key character varying(265)  -- 255 + 10
+;
+update bkp.order_line_sale_09_23_2023
+set line_key = concat( order_number, '-', product);
+
 -- 6. Crear una tabla llamada "employees" (por el momento vacia) que tenga un id (creado de forma incremental), name, surname, start_date, end_name, phone, country, province, store_id, position. Decidir cual es el tipo de dato mas acorde.
-  
+
+drop table if exists stg.employees;
+CREATE TABLE IF NOT EXISTS stg.employees
+(
+    	employee_id serial primary key,
+	name varchar (255),
+	surname varchar (255),
+	start_date date,
+	end_date date,
+    	phone character varying(20),
+	country varchar (255),
+	province varchar (255),
+    	store_id smallint,
+    	position varchar (255)
+);
+
 -- 7. Insertar nuevos valores a la tabla "employees" para los siguientes 4 empleados:
     -- Juan Perez, 2022-01-01, telefono +541113869867, Argentina, Santa Fe, tienda 2, Vendedor.
     -- Catalina Garcia, 2022-03-01, Argentina, Buenos Aires, tienda 2, Representante Comercial
     -- Ana Valdez, desde 2020-02-21 hasta 2022-03-01, España, Madrid, tienda 8, Jefe Logistica
     -- Fernando Moralez, 2022-04-04, España, Valencia, tienda 9, Vendedor.
 
-  
+insert into stg.employees values (default,'Juan','Perez', '2022-01-01',null,'+541113869867', 'Argentina', 'Santa Fe', 2, 'Vendedor')
+insert into stg.employees values (default,'Catalina','Garcia', '2022-03-01',null, null, 'Argentina', 'Buenos Aires', 2, 'Representante Comercial')
+insert into stg.employees values (default,'Ana','Valdez', '2020-02-21','2022-03-01', null, 'España', 'Madrid', 8, 'Jefe Logistica')
+insert into stg.employees values (default,'Fernando','Moralez', '2022-04-04',null, null, 'España', 'Valencia', 9, 'Vendedor')
+
 -- 8. Crear un backup de la tabla "cost" agregandole una columna que se llame "last_updated_ts" que sea el momento exacto en el cual estemos realizando el backup en formato datetime.
-  
+
+select 
+	*
+into bkp.cost_09_23_2023
+from stg.cost
+;
+alter table bkp.cost_09_23_2023
+add last_updated_ts timestamp default current_timestamp
+
 -- 9. En caso de hacer un cambio que deba revertirse en la tabla "order_line_sale" y debemos volver la tabla a su estado original, como lo harias?
+
+-- utilizaria el backup para volver la tabal a su estado original:
+drop table if exists stg.order_line_sale ;
+
+select 
+	*
+into stg.order_line_sale
+from bkp.order_line_sale_09_23_2023 ;
