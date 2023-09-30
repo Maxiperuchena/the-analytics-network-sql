@@ -324,8 +324,8 @@ group by Material
 select
 	ols.*,
 	case
-		when currency = 'ARS' then (sale * fx_rate_usd_peso)
-		when currency = 'EUR' then (sale * fx_rate_usd_eur) 
+		when currency = 'ARS' then (sale / fx_rate_usd_peso)
+		when currency = 'EUR' then (sale / fx_rate_usd_eur) 
 		else sale 
 	end VentaUSD
 from stg.order_line_sale ols
@@ -337,8 +337,8 @@ on date_trunc('month',ols.date) = fx.month
 select
 	ols.*,
 	case
-		when currency = 'ARS' then (sale * fx_rate_usd_peso)
-		when currency = 'EUR' then (sale * fx_rate_usd_eur) 
+		when currency = 'ARS' then (sale / fx_rate_usd_peso)
+		when currency = 'EUR' then (sale / fx_rate_usd_eur) 
 		else sale 
 	end VentaUSD
 from stg.order_line_sale ols
@@ -352,13 +352,13 @@ with ventas_usd as (   -- utilizo un cte para crear la tabla ventas_usd y luego 
 select
 	ols.*,
 	case
-		when currency = 'ARS' then (coalesce(sale,0) * fx_rate_usd_peso)
-		when currency = 'EUR' then (coalesce(sale,0) * fx_rate_usd_eur) 
+		when currency = 'ARS' then (coalesce(sale,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(sale,0) / fx_rate_usd_eur) 
 		else sale 
 	end VentaUSD,
 	case
-		when currency = 'ARS' then (coalesce(promotion,0) * fx_rate_usd_peso)
-		when currency = 'EUR' then (coalesce(promotion,0) * fx_rate_usd_eur) 
+		when currency = 'ARS' then (coalesce(promotion,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur) 
 		else promotion 
 	end DescuentoUSD,
 	product_cost_usd
