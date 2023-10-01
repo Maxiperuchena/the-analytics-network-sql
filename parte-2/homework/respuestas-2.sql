@@ -1,4 +1,4 @@
--- ## Semana 3 - Parte A
+eo-- ## Semana 3 - Parte A
 
 -- 1.Crear una vista con el resultado del ejercicio donde unimos la cantidad de gente que ingresa a tienda usando los dos sistemas.(tablas market_count y super_store_count)
 -- . Nombrar a la lista `stg.vw_store_traffic`
@@ -21,19 +21,181 @@ order by date, store_id
 
 -- 2. Recibimos otro archivo con ingresos a tiendas de meses anteriores. Subir el archivo a stg.super_store_count_aug y agregarlo a la vista del ejercicio anterior. Cual hubiese sido la diferencia si hubiesemos tenido una tabla? (contestar la ultima pregunta con un texto escrito en forma de comentario)
 
+-- Primero creo la tabla:
 
+CREATE TABLE IF NOT EXISTS stg.super_store_count_aug
+(
+    store_id smallint,
+    date character varying(10) COLLATE pg_catalog."default",
+    traffic smallint
+)
 
+TABLESPACE pg_default;
 
+ALTER TABLE IF EXISTS stg.super_store_count_aug
+    OWNER to postgres;
+-- Luego cargo los datos manualmente desde "import" con el archivo .xls.
+-- finalmente modifico la vista:
+
+CREATE OR REPLACE VIEW stg.vw_store_traffic
+ AS
+ SELECT market_count.store_id,
+    to_date(market_count.date::text, 'YYYYMMDD'::text) AS date,
+    market_count.traffic
+   FROM stg.market_count
+UNION ALL
+ SELECT ssc.store_id,
+    to_date(ssc.date::text, 'YYYY-MM-DD'::text) AS date,
+    ssc.traffic
+   FROM stg.super_store_count ssc
+UNION ALL
+ SELECT ssca.store_id,
+    to_date(ssca.date::text, 'YYYY-MM-DD'::text) AS date,
+    ssca.traffic
+   FROM stg.super_store_count_aug ssca
+  ORDER BY 2, 1;
+
+-- Si en vez de una vista, hubiese tenido una tabla, hubiera tenido que agregar los datos con un insert into:
+
+select 
+	*
+into stg.super_store_count
+from stg.super_store_count_aug ssca
+;
 
 -- 3. Crear una vista con el resultado del ejercicio del ejercicio de la Parte 1 donde calculamos el margen bruto en dolares. Agregarle la columna de ventas, promociones, creditos, impuestos y el costo en dolares para poder reutilizarla en un futuro. Responder con el codigo de creacion de la vista.
 -- El nombre de la vista es stg.vw_order_line_sale_usd
 -- Los nombres de las nuevas columnas son sale_usd, promotion_usd, credit_usd, tax_usd, y line_cost_usd
 
+
+create view stg.vw_order_line_sale_usd as
+
+with ventas_usd as (   -- utilizo un cte para crear la tabla ventas_usd y luego calcular el margen de ventas
+select
+	ols.*,
+	case
+		when currency = 'ARS' then (coalesce(sale,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(sale,0) / fx_rate_usd_eur) 
+		else sale 
+	end sale_USD,
+	case
+		when currency = 'ARS' then (coalesce(promotion,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur) 
+		else promotion 
+	end promotion_USD,
+	case
+		when currency = 'ARS' then (coalesce(credit,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(credit,0) / fx_rate_usd_eur) 
+		else credit 
+	end credit_USD,
+	case
+		when currency = 'ARS' then (coalesce(tax,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(tax,0) / fx_rate_usd_eur) 
+		else tax
+	end tax_USD,
+	product_cost_usd as line_cost_USD
+from stg.order_line_sale ols
+left join stg.monthly_average_fx_rate fx
+on date_trunc('month',ols.date) = fx.month
+left join stg.cost c
+on ols.product = c.product_code
+)
+select
+	ventas_usd.*,
+	sale_USD - promotion_USD - line_cost_USD as margin_USD
+from ventas_usd
+
+
 -- 4. Generar una query que me sirva para verificar que el nivel de agregacion de la tabla de ventas (y de la vista) no se haya afectado. Recordas que es el nivel de agregacion/detalle? Lo vimos en la teoria de la parte 1! Nota: La orden M202307319089 parece tener un problema verdad? Lo vamos a solucionar mas adelante.
+-- PRIMERA FORMA ( con una particion)
+
+with stg_sales as (
+select 
+	order_number,
+	product, 
+	row_number() over(partition by order_number, product, store, date order by date asc, store asc, product asc) as rn
+from stg.order_line_sale
+)
+select 
+* 
+from stg_sales
+where rn > 1
+
+-- SEGUNDA FORMA 
+
+select 
+	order_number,
+	product,
+	store,
+	date,
+	count(1)
+from  stg.vw_order_line_sale_usd
+group by order_number, product, store, date
+having count(1) > 1
 
 -- 5. Calcular el margen bruto a nivel Subcategoria de producto. Usar la vista creada stg.vw_order_line_sale_usd. La columna de margen se llama margin_usd
 
+-- Primero tengo que modificar la vista para agregar los datos de product_master
+
+drop view if exists stg.vw_order_line_sale_usd ;
+create or replace view stg.vw_order_line_sale_usd as
+
+with ventas_usd as (   -- utilizo un cte para crear la tabla ventas_usd y luego calcular el margen de ventas
+select
+	ols.*,
+	pm.*,
+	case
+		when currency = 'ARS' then (coalesce(sale,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(sale,0) / fx_rate_usd_eur) 
+		else sale 
+	end sale_USD,
+	case
+		when currency = 'ARS' then (coalesce(promotion,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur) 
+		else promotion 
+	end promotion_USD,
+	case
+		when currency = 'ARS' then (coalesce(credit,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(credit,0) / fx_rate_usd_eur) 
+		else credit 
+	end credit_USD,
+	case
+		when currency = 'ARS' then (coalesce(tax,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(tax,0) / fx_rate_usd_eur) 
+		else tax
+	end tax_USD,
+	product_cost_usd as line_cost_USD
+from stg.order_line_sale ols
+left join stg.monthly_average_fx_rate fx
+on date_trunc('month',ols.date) = fx.month
+left join stg.cost c
+on ols.product = c.product_code
+left join stg.product_master pm
+on ols.product = pm.product_code
+)
+select
+	ventas_usd.*,
+	sale_USD - promotion_USD - line_cost_USD as margin_USD
+from ventas_usd
+;
+
+-- Ahora calulo el margen con la vista
+
+
+select
+	vw_order_line_sale_usd.*,
+	avg(sale_USD - promotion_USD - line_cost_USD) over (partition by subcategory) as margin_USD_by_subcategory
+from stg.vw_order_line_sale_usd
+
 -- 6. Calcular la contribucion de las ventas brutas de cada producto al total de la orden.
+
+
+select
+	vw_order_line_sale_usd.*,
+	((sale_USD) / (sum(sale_USD) over (partition by order_number))) as contribution_USD_by_order_line
+from stg.vw_order_line_sale_usd
+
+
 
 -- 7. Calcular las ventas por proveedor, para eso cargar la tabla de proveedores por producto. Agregar el nombre el proveedor en la vista del punto stg.vw_order_line_sale_usd. El nombre de la nueva tabla es stg.suppliers
 
