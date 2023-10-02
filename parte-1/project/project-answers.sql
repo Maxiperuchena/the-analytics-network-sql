@@ -1,9 +1,6 @@
 
--- General 
--- - Ventas brutas, netas y margen (USD)
+-- Proyecto parte 1 - Maximiliano Peruchena
 
--------------------- PROYECTO PARTE 1  --------------------
-----------------------------------------------------------------
 with stg_sales as (
 select 
 	s.*,
@@ -46,76 +43,99 @@ left join stg.suppliers sup
 on s.product = sup.product_id
 where sup.is_primary = true
 )
-, stg_traffic as (
-select * 
-	from stg.vw_store_traffic
-)
-
 
 -- Ventas brutas
 select 	
+	cast(date_trunc('month', s.date) as date) mes,
 	sum( sale_USD ) as Ventas_Brutas
 from stg_sales s
-
+group by mes
+order by mes
+	
 -- Ventas netas = Ventas - descuentos y devoluciones
 
 select 	
+	cast(date_trunc('month', s.date) as date) mes,
 	sum( sale_USD ) - sum( promotion_USD ) as Ventas_Netas
 from stg_sales s
+group by mes
+order by mes
 
 -- Margen (USD) = ventas - descuentos - costo
 
-select 	
+select
+	cast(date_trunc('month', s.date) as date) mes,
 	sum(sale_USD) - sum(promotion_USD) - sum(product_cost_USD) as margin_USD
 from stg_sales s
+group by mes
+order by mes
 
 -- Margen por categoria (USD) = ventas - descuentos - costo
 
 select 	
 	category,
+	cast(date_trunc('month', s.date) as date) mes,
 	sum(sale_USD) - sum(promotion_USD) - sum(product_cost_USD) as margin_USD
 from stg_sales s
-group by category
+group by category, mes
+order by category, mes
 
 -- - ROI por categoria de producto. ROI = ventas netas / Valor promedio de inventario (USD)
 
 select 	
 	category,
+	cast(date_trunc('month', s.date) as date) mes,
 	( sum( sale_USD ) - sum( promotion_USD )) / sum(((initial + final)*1.00/2) * product_cost_usd ) as ROI
 from stg_sales s
-group by category
+group by category, mes
+order by category, mes
   
 -- - AOV (Average order value), valor promedio de la orden. (USD)
 
 select 	
+	cast(date_trunc('month', s.date) as date) mes,
 	sum( sale_USD ) / count( distinct order_number ) as AOV
 from stg_sales s
+group by mes
+order by mes
 
 -- Contabilidad (USD)
 -- - Impuestos pagados
 
-select 	
+select 
+	cast(date_trunc('month', s.date) as date) mes,
 	sum( tax_USD ) as tax
 from stg_sales s
+group by mes
+order by mes
  
 -- - Tasa de impuesto. Impuestos / Ventas netas 
 
 select 	
+	cast(date_trunc('month', s.date) as date) mes,
 	(sum( tax_USD )) / ( sum( sale_USD ) - sum( promotion_USD )) as tax_rate
 from stg_sales s
+group by mes
+order by mes
 
 -- - Cantidad de creditos otorgados
 
   
 select 	
+	cast(date_trunc('month', s.date) as date) mes,
 	sum( case when credit_USD != 0 then 1 else 0 end )  as credits
 from stg_sales s
+group by mes
+order by mes
 
 -- - Valor pagado final por orden de linea. Valor pagado: Venta - descuento + impuesto - credito
 
 select 	
+	cast(date_trunc('month', s.date) as date) mes,
 	sum( sale_USD ) - sum( promotion_USD ) + sum( tax_USD ) - sum( credit_USD ) as VPF
 from stg_sales s
+group by mes
+order by mes
   
 
 -- Supply Chain (USD)
