@@ -189,22 +189,88 @@ from stg.vw_order_line_sale_usd
 
 -- 6. Calcular la contribucion de las ventas brutas de cada producto al total de la orden.
 
-
 select
 	vw_order_line_sale_usd.*,
 	((sale_USD) / (sum(sale_USD) over (partition by order_number))) as contribution_USD_by_order_line
 from stg.vw_order_line_sale_usd
 
-
-
 -- 7. Calcular las ventas por proveedor, para eso cargar la tabla de proveedores por producto. Agregar el nombre el proveedor en la vista del punto stg.vw_order_line_sale_usd. El nombre de la nueva tabla es stg.suppliers
+
+-- Primero modificamos la vista para agregar la tabla suppliers
+
+drop view if exists stg.vw_order_line_sale_usd ;
+
+create or replace view stg.vw_order_line_sale_usd as
+
+with ventas_usd as (   -- utilizo un cte para crear la tabla ventas_usd
+select
+	ols.*,
+	pm.*,
+	sup.name supplier_name,
+	case
+		when currency = 'ARS' then (coalesce(sale,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(sale,0) / fx_rate_usd_eur) 
+		else sale 
+	end sale_USD,
+	case
+		when currency = 'ARS' then (coalesce(promotion,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur) 
+		else promotion 
+	end promotion_USD,
+	case
+		when currency = 'ARS' then (coalesce(credit,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(credit,0) / fx_rate_usd_eur) 
+		else credit 
+	end credit_USD,
+	case
+		when currency = 'ARS' then (coalesce(tax,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(tax,0) / fx_rate_usd_eur) 
+		else tax
+	end tax_USD,
+	product_cost_usd as line_cost_USD
+from stg.order_line_sale ols
+left join stg.monthly_average_fx_rate fx
+on date_trunc('month',ols.date) = fx.month
+left join stg.cost c
+on ols.product = c.product_code
+left join stg.product_master pm
+on ols.product = pm.product_code
+left join stg.suppliers sup
+on  ols.product = sup.product_id  
+where sup.is_primary = True
+)
+select
+	ventas_usd.*,
+	sale_USD - promotion_USD - line_cost_USD as margin_USD
+from ventas_usd
+;
+
+-- Ahora puedo obtener las ventas por proveedor. Ya que no lo especifica, calculo ventas brutas
+select 
+	supplier_name,
+	sum(sale_USD)
+from stg.vw_order_line_sale_usd
+group by supplier_name
+order by supplier_name
 
 -- 8. Verificar que el nivel de detalle de la vista stg.vw_order_line_sale_usd no se haya modificado, en caso contrario que se deberia ajustar? Que decision tomarias para que no se genereren duplicados?
     -- - Se pide correr la query de validacion.
     -- - Modificar la query de creacion de stg.vw_order_line_sale_usd  para que no genere duplicacion de las filas. 
     -- - Explicar brevemente (con palabras escrito tipo comentario) que es lo que sucedia.
 
-
+-- Al correr la query de verificacion:
+select 
+	order_number,
+	product,
+	store,
+	date,
+	count(1)
+from  stg.vw_order_line_sale_usd
+group by order_number, product, store, date
+having count(1) > 1
+-- Se verifica que NO hay valores duplicados. El unico duplicado es la orden M202307319089 que ya estaba duplicada en la tabla original. 
+-- Esto se evito agregando la sentencia " where sup.is_primary = True ". De esta manera no se tienen en cuenta los proveedores secundarios.
+-- Vale destacar que puede haber mas de un proveedor por producto, por eso se incrementan al hacer join si no se tiene este cuidado.
 
 -- ## Semana 3 - Parte B
 
