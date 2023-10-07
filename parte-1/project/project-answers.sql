@@ -8,21 +8,25 @@ select
 	case
 		when currency = 'ARS' then (coalesce(sale,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(sale,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(sale,0) / fx_rate_usd_uru)
 		else sale 
 	end sale_USD,
 	case
 		when currency = 'ARS' then (coalesce(promotion,0) / fx_rate_usd_peso)
-		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur) 
+		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur)
+		when currency = 'URU' then (coalesce(promotion,0) / fx_rate_usd_uru)
 		else promotion 
 	end promotion_USD,
 	case
 		when currency = 'ARS' then (coalesce(credit,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(credit,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(credit,0) / fx_rate_usd_uru)
 		else credit 
 	end credit_USD,
 	case
 		when currency = 'ARS' then (coalesce(tax,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(tax,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(tax,0) / fx_rate_usd_uru)
 		else tax
 	end tax_USD,
 	product_cost_usd,
