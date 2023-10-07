@@ -324,8 +324,9 @@ group by Material
 select
 	ols.*,
 	case
-		when currency = 'ARS' then (sale / fx_rate_usd_peso)
-		when currency = 'EUR' then (sale / fx_rate_usd_eur) 
+		when currency = 'ARS' then (coalesce(sale,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(sale,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(sale,0) / fx_rate_usd_uru)
 		else sale 
 	end VentaUSD
 from stg.order_line_sale ols
@@ -338,7 +339,8 @@ select
 	ols.*,
 	case
 		when currency = 'ARS' then (sale / fx_rate_usd_peso)
-		when currency = 'EUR' then (sale / fx_rate_usd_eur) 
+		when currency = 'EUR' then (sale / fx_rate_usd_eur)
+		when currency = 'URU' then (sale / fx_rate_usd_uru)
 		else sale 
 	end VentaUSD
 from stg.order_line_sale ols
@@ -354,11 +356,13 @@ select
 	case
 		when currency = 'ARS' then (coalesce(sale,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(sale,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(sale,0) / fx_rate_usd_uru)
 		else sale 
 	end VentaUSD,
 	case
 		when currency = 'ARS' then (coalesce(promotion,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(promotion,0) / fx_rate_usd_uru)
 		else promotion 
 	end DescuentoUSD,
 	product_cost_usd
