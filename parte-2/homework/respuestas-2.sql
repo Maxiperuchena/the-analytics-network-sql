@@ -76,21 +76,25 @@ select
 	case
 		when currency = 'ARS' then (coalesce(sale,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(sale,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(sale,0) / fx_rate_usd_uru)
 		else sale 
 	end sale_USD,
 	case
 		when currency = 'ARS' then (coalesce(promotion,0) / fx_rate_usd_peso)
-		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur) 
+		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur)
+		when currency = 'URU' then (coalesce(promotion,0) / fx_rate_usd_uru)
 		else promotion 
 	end promotion_USD,
 	case
 		when currency = 'ARS' then (coalesce(credit,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(credit,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(credit,0) / fx_rate_usd_uru)
 		else credit 
 	end credit_USD,
 	case
 		when currency = 'ARS' then (coalesce(tax,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(tax,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(tax,0) / fx_rate_usd_uru)
 		else tax
 	end tax_USD,
 	product_cost_usd as line_cost_USD
@@ -147,21 +151,25 @@ select
 	case
 		when currency = 'ARS' then (coalesce(sale,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(sale,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(sale,0) / fx_rate_usd_uru)
 		else sale 
 	end sale_USD,
 	case
 		when currency = 'ARS' then (coalesce(promotion,0) / fx_rate_usd_peso)
-		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur) 
+		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur)
+		when currency = 'URU' then (coalesce(promotion,0) / fx_rate_usd_uru)
 		else promotion 
 	end promotion_USD,
 	case
 		when currency = 'ARS' then (coalesce(credit,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(credit,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(credit,0) / fx_rate_usd_uru)
 		else credit 
 	end credit_USD,
 	case
 		when currency = 'ARS' then (coalesce(tax,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(tax,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(tax,0) / fx_rate_usd_uru)
 		else tax
 	end tax_USD,
 	product_cost_usd as line_cost_USD
@@ -196,8 +204,6 @@ from stg.vw_order_line_sale_usd
 
 -- 7. Calcular las ventas por proveedor, para eso cargar la tabla de proveedores por producto. Agregar el nombre el proveedor en la vista del punto stg.vw_order_line_sale_usd. El nombre de la nueva tabla es stg.suppliers
 
--- Primero modificamos la vista para agregar la tabla suppliers
-
 drop view if exists stg.vw_order_line_sale_usd ;
 
 create or replace view stg.vw_order_line_sale_usd as
@@ -210,21 +216,25 @@ select
 	case
 		when currency = 'ARS' then (coalesce(sale,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(sale,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(sale,0) / fx_rate_usd_uru)
 		else sale 
 	end sale_USD,
 	case
 		when currency = 'ARS' then (coalesce(promotion,0) / fx_rate_usd_peso)
-		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur) 
+		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur)
+		when currency = 'URU' then (coalesce(promotion,0) / fx_rate_usd_uru)
 		else promotion 
 	end promotion_USD,
 	case
 		when currency = 'ARS' then (coalesce(credit,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(credit,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(credit,0) / fx_rate_usd_uru)
 		else credit 
 	end credit_USD,
 	case
 		when currency = 'ARS' then (coalesce(tax,0) / fx_rate_usd_peso)
 		when currency = 'EUR' then (coalesce(tax,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(tax,0) / fx_rate_usd_uru)
 		else tax
 	end tax_USD,
 	product_cost_usd as line_cost_USD
@@ -276,19 +286,151 @@ having count(1) > 1
 
 -- 1. Calcular el porcentaje de valores null de la tabla stg.order_line_sale para la columna creditos y descuentos. (porcentaje de nulls en cada columna)
 
+with cuenta_nulos as (
+select 
+	sum(case when credit is null then 1 else 0 end) credit_null,	
+	sum(case when credit is null then 1 else 1 end) credit_total,	
+	sum(case when promotion is null then 1 else 0 end) promotion_null,
+	sum(case when promotion is null then 1 else 1 end) promotion_total
+from stg.order_line_sale
+)
+select 
+	(credit_null*1.00 / credit_total*1.00) * 100  as credit__null ,
+	(promotion_null*1.00 / promotion_total*1.00) * 100 as promotion__null
+from cuenta_nulos
+
 -- 2. La columna is_walkout se refiere a los clientes que llegaron a la tienda y se fueron con el producto en la mano (es decia habia stock disponible). Responder en una misma query:
    --  - Cuantas ordenes fueron walkout por tienda?
    --  - Cuantas ventas brutas en USD fueron walkout por tienda?
    --  - Cual es el porcentaje de las ventas brutas walkout sobre el total de ventas brutas por tienda?
+
+
+with cte_sales as (
+select 
+    olsusd.*,
+	row_number() over(partition by order_number) as rn
+from stg.vw_order_line_sale_usd olsusd
+) 
+select 
+    store,
+    sum(case when is_walkout = true then 1 else 0 end) as walkouttrue,
+    sum(case when is_walkout = false then 1 else 0 end) as walkoutfalse
+from cte_sales s
+where rn = 1
+group by store
+order by store
+
 
 -- 3. Siguiendo el nivel de detalle de la tabla ventas, hay una orden que no parece cumplirlo. Como identificarias duplicados utilizando una windows function? 
 -- Tenes que generar una forma de excluir los casos duplicados, para este caso particular y a nivel general, si llegan mas ordenes con duplicaciones.
 -- Identificar los duplicados.
 -- Eliminar las filas duplicadas. Podes usar BEGIN transaction y luego rollback o commit para verificar que se haya hecho correctamente.
 
+with stg_sales as (
+select 
+	order_number,
+	product, 
+	row_number() over(partition by order_number, product, store, date order by date asc, store asc, product asc) as rn
+from stg.vw_order_line_sale_usd
+)
+select 
+* 
+from stg_sales
+where rn <= 1
+
+
 -- 4. Obtener las ventas totales en USD de productos que NO sean de la categoria TV NI esten en tiendas de Argentina. Modificar la vista stg.vw_order_line_sale_usd con todas las columnas necesarias. 
 
+
+drop view if exists stg.vw_order_line_sale_usd ;
+
+create or replace view stg.vw_order_line_sale_usd as
+
+with ventas_usd as (   -- utilizo un cte para crear la tabla ventas_usd
+select
+	ols.*,
+	pm.*,
+	sm.country as store_country,
+	sup.name supplier_name,
+	case
+		when currency = 'ARS' then (coalesce(sale,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(sale,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(sale,0) / fx_rate_usd_uru)
+		else sale 
+	end sale_USD,
+	case
+		when currency = 'ARS' then (coalesce(promotion,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(promotion,0) / fx_rate_usd_eur)
+		when currency = 'URU' then (coalesce(promotion,0) / fx_rate_usd_uru)
+		else promotion 
+	end promotion_USD,
+	case
+		when currency = 'ARS' then (coalesce(credit,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(credit,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(credit,0) / fx_rate_usd_uru)
+		else credit 
+	end credit_USD,
+	case
+		when currency = 'ARS' then (coalesce(tax,0) / fx_rate_usd_peso)
+		when currency = 'EUR' then (coalesce(tax,0) / fx_rate_usd_eur) 
+		when currency = 'URU' then (coalesce(tax,0) / fx_rate_usd_uru)
+		else tax
+	end tax_USD,
+	product_cost_usd as line_cost_USD
+from stg.order_line_sale ols
+left join stg.monthly_average_fx_rate fx
+on date_trunc('month',ols.date) = fx.month
+left join stg.cost c
+on ols.product = c.product_code
+left join stg.product_master pm
+on ols.product = pm.product_code
+left join stg.suppliers sup
+on  ols.product = sup.product_id  
+left join stg.store_master sm
+on ols.store = sm.store_id
+where sup.is_primary = True
+)
+select
+	*
+from ventas_usd
+-- end of view
+;
+
+-- Ahora si puedo filtrar lo pedido con la vista modificada:
+select
+	product,
+	sum(sale_usd) sale_USD
+from stg.vw_order_line_sale_usd
+where ((lower(subcategory)) <> 'tv') and ((lower(store_country) <> 'argentina'))
+group by product
+order by product
+;
+
 -- 5. El gerente de ventas quiere ver el total de unidades vendidas por dia junto con otra columna con la cantidad de unidades vendidas una semana atras y la diferencia entre ambos.Diferencia entre las ventas mas recientes y las mas antiguas para tratar de entender un crecimiento.
+
+with sales as (
+select
+	date,
+	sum(quantity) qty_today
+from stg.vw_order_line_sale_usd olsthisweek
+group by date
+order by date
+),
+sales_total as (
+select
+	s1.*,
+	s2.date as date_prev_week,
+	s2.qty_today as qty_prev_week
+from sales s1
+inner join sales s2
+on s1.date = (s2.date + interval '7 days')
+)
+
+select 
+	*,
+	(qty_today - qty_prev_week) as diff
+from sales_total
+
 
 -- 6. Crear una vista de inventario con la cantidad de inventario promedio por dia, tienda y producto, que ademas va a contar con los siguientes datos:
 /* - Nombre y categorias de producto: `product_name`, `category`, `subcategory`, `subsubcategory`
@@ -303,7 +445,77 @@ having count(1) > 1
     - El nivel de agregacion es dia/tienda/sku.
     - El Promedio diario Unidades vendidas ultimos 7 dias tiene que calcularse para cada dia.
 */
-        
+
+-- View: stg.vw_inventory
+
+-- DROP VIEW stg.vw_inventory;
+
+CREATE OR REPLACE VIEW stg.vw_inventory
+ AS
+ WITH cte_inv AS (
+         SELECT inv.date,
+            inv.store_id,
+            inv.item_id,
+            inv.initial,
+            inv.final,
+            (inv.initial + inv.final) / 2 AS avg_inventory,
+            pm.name AS product_name,
+            pm.category,
+            pm.subcategory,
+            pm.subsubcategory,
+            sm.country,
+            sm.name AS store_name,
+            c.product_cost_usd
+           FROM stg.inventory inv
+             LEFT JOIN stg.product_master pm ON inv.item_id::text = pm.product_code::text
+             LEFT JOIN stg.store_master sm ON inv.store_id = sm.store_id
+             LEFT JOIN stg.cost c ON inv.item_id::text = c.product_code::text
+        ), cte_last_snapshot AS (
+         SELECT inv.item_id,
+            inv.store_id,
+            max(inv.date) AS last_snapshot
+           FROM cte_inv inv
+          GROUP BY inv.item_id, inv.store_id
+          ORDER BY inv.item_id, inv.store_id
+        ), cte_final_inventory AS (
+         SELECT inv.date,
+            inv.store_id,
+            inv.item_id,
+            inv.initial,
+            inv.final,
+            inv.avg_inventory,
+            inv.product_name,
+            inv.category,
+            inv.subcategory,
+            inv.subsubcategory,
+            inv.country,
+            inv.store_name,
+            inv.product_cost_usd,
+                CASE
+                    WHEN inv.date = ls.last_snapshot THEN true
+                    ELSE false
+                END AS is_last_snapshot
+           FROM cte_inv inv
+             LEFT JOIN cte_last_snapshot ls ON inv.item_id::text = ls.item_id::text AND inv.store_id = ls.store_id
+        )
+ SELECT inventory.date,
+    inventory.store_id,
+    inventory.item_id,
+    inventory.initial,
+    inventory.final,
+    inventory.avg_inventory,
+    inventory.product_name,
+    inventory.category,
+    inventory.subcategory,
+    inventory.subsubcategory,
+    inventory.country,
+    inventory.store_name,
+    inventory.product_cost_usd,
+    inventory.is_last_snapshot
+   FROM cte_final_inventory inventory;
+
+ALTER TABLE stg.vw_inventory
+    OWNER TO postgres;
 
 -- ## Semana 4 - Parte A
 
