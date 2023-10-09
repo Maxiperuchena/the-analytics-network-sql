@@ -197,10 +197,22 @@ from stg.vw_order_line_sale_usd
 
 -- 6. Calcular la contribucion de las ventas brutas de cada producto al total de la orden.
 
-select
-	vw_order_line_sale_usd.*,
-	((sale_USD) / (sum(sale_USD) over (partition by order_number))) as contribution_USD_by_order_line
+
+with cte_ordenes as (
+select 
+	order_number,
+	sum(sale_usd) as total_sale_usd
 from stg.vw_order_line_sale_usd
+group by order_number
+order by order_number
+)
+select
+	ols.*,
+	o.total_sale_usd,
+	(ols.sale_USD) / (o.total_sale_usd) as contribution_USD_by_order_line
+from stg.vw_order_line_sale_usd ols
+left join cte_ordenes o
+on ols.order_number = o.order_number
 
 -- 7. Calcular las ventas por proveedor, para eso cargar la tabla de proveedores por producto. Agregar el nombre el proveedor en la vista del punto stg.vw_order_line_sale_usd. El nombre de la nueva tabla es stg.suppliers
 
@@ -517,14 +529,68 @@ CREATE OR REPLACE VIEW stg.vw_inventory
 ALTER TABLE stg.vw_inventory
     OWNER TO postgres;
 
+-- TERMINAR! FALTA LA PARTE DEL CALCULO DEL DOH
+
 -- ## Semana 4 - Parte A
 
 -- 1. Calcular la contribucion de las ventas brutas de cada producto al total de la orden utilizando una window function. Mismo objetivo que el ejercicio de la parte A pero con diferente metodologia.
 
+select
+	vw_order_line_sale_usd.*,
+	((sale_USD) / (sum(sale_USD) over (partition by order_number))) as contribution_USD_by_order_line
+from stg.vw_order_line_sale_usd
+
 -- 2. La regla de pareto nos dice que aproximadamente un 20% de los productos generan un 80% de las ventas. Armar una vista a nivel sku donde se pueda identificar por orden de contribucion, ese 20% aproximado de SKU mas importantes. Nota: En este ejercicios estamos construyendo una tabla que muestra la regla de Pareto. 
 -- El nombre de la vista es `stg.vw_pareto`. Las columnas son, `product_code`, `product_name`, `quantity_sold`, `cumulative_contribution_percentage`
 
+with cte as(
+select 
+	product,
+	sum(quantity) as qty_sold
+from stg.order_line_sale ols
+group by product
+order by product desc)
+, cte2 as (
+select 
+	product,
+	qty_sold,
+	sum(qty_sold) over() as total_qty,
+	sum(qty_sold) over(order by qty_sold) as total_qty_running_sum
+from cte)
+
+select 
+	*,
+	(total_qty_running_sum)*1.00/(total_qty)*1.00 as accum_contribution
+from cte2
+
+
 -- 3. Calcular el crecimiento de ventas por tienda mes a mes, con el valor nominal y el valor % de crecimiento.
+with cte_sales as(
+select 
+	store,
+	cast(date_trunc('month', ols.date) as date) mes,
+	sum(sale_usd) gross_sales_usd
+from stg.vw_order_line_sale_usd ols
+group by store, mes
+order by store, mes
+), 
+cte_sales2 as (
+select 
+	s.*, 
+	s2.mes as prev_month,
+	s2.gross_sales_usd as gross_sales_usd_prev_month
+from cte_sales s
+inner join cte_sales s2
+on (s.store = s2.store) and (s.mes = s2.mes + interval '1 month')
+)
+-- select * from cte_sales2
+
+select 
+	s.*,
+	(gross_sales_usd  - gross_sales_usd_prev_month) as absolute_growth, 
+	(((gross_sales_usd  - gross_sales_usd_prev_month)*1.00/(gross_sales_usd*1.00)))*100 as relative_growth 
+from cte_sales2 s
+
 
 -- 4. Crear una vista a partir de la tabla return_movements que este a nivel Orden de venta, item y que contenga las siguientes columnas:
 /* - Orden `order_number`
