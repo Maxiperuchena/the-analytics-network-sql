@@ -462,15 +462,18 @@ from sales_total
 
 -- DROP VIEW stg.vw_inventory;
 
+-- View: stg.vw_inventory
+
+DROP VIEW stg.vw_inventory;
+
 CREATE OR REPLACE VIEW stg.vw_inventory
  AS
- WITH cte_inv AS (
+ WITH cte_inv AS (   -- armo la tabla madre de inventario
          SELECT inv.date,
             inv.store_id,
             inv.item_id,
             inv.initial,
             inv.final,
-            (inv.initial + inv.final) / 2 AS avg_inventory,
             pm.name AS product_name,
             pm.category,
             pm.subcategory,
@@ -482,20 +485,19 @@ CREATE OR REPLACE VIEW stg.vw_inventory
              LEFT JOIN stg.product_master pm ON inv.item_id::text = pm.product_code::text
              LEFT JOIN stg.store_master sm ON inv.store_id = sm.store_id
              LEFT JOIN stg.cost c ON inv.item_id::text = c.product_code::text
-        ), cte_last_snapshot AS (
+        ), cte_last_snapshot AS (  -- armo la tabla de last snapshot
          SELECT inv.item_id,
             inv.store_id,
             max(inv.date) AS last_snapshot
            FROM cte_inv inv
           GROUP BY inv.item_id, inv.store_id
           ORDER BY inv.item_id, inv.store_id
-        ), cte_final_inventory AS (
+        ), cte_final_inventory AS ( -- con un join agrego la tabla last snapshot a la de inventario
          SELECT inv.date,
             inv.store_id,
             inv.item_id,
             inv.initial,
             inv.final,
-            inv.avg_inventory,
             inv.product_name,
             inv.category,
             inv.subcategory,
@@ -509,27 +511,34 @@ CREATE OR REPLACE VIEW stg.vw_inventory
                 END AS is_last_snapshot
            FROM cte_inv inv
              LEFT JOIN cte_last_snapshot ls ON inv.item_id::text = ls.item_id::text AND inv.store_id = ls.store_id
-        )
- SELECT inventory.date,
-    inventory.store_id,
-    inventory.item_id,
-    inventory.initial,
-    inventory.final,
-    inventory.avg_inventory,
-    inventory.product_name,
-    inventory.category,
-    inventory.subcategory,
-    inventory.subsubcategory,
-    inventory.country,
-    inventory.store_name,
-    inventory.product_cost_usd,
-    inventory.is_last_snapshot
-   FROM cte_final_inventory inventory;
+        ), cte_avg_sales AS (
+		select 
+			date,
+			store,
+			product,
+			sum(quantity) quantity
+		from stg.vw_order_line_sale_usd
+		group by date, store, product
+		order by date, store, product
+), cte_inv_DOH as ( 
 
-ALTER TABLE stg.vw_inventory
-    OWNER TO postgres;
+	select 		-- ahora uno todo en uan tabla y calculo el DOH
+		i.*,
+		s.quantity,
+		(i.initial + i.final) / 2 AS avg_inventory,
+		avg(s.quantity) over(partition by i.date, i.store_id, i.item_id order by i.date asc rows between 7 preceding and current row) as avg_sales_last_7_days
+	from cte_final_inventory i
+	left join cte_avg_sales s 
+	on s.date = i.date
+	and s.store = i.store_id
+	and s.product = i.item_id
+	)
+select
+	i.*,
+	i.avg_inventory / i.avg_sales_last_7_days as DOH
+from cte_inv_DOH i
+-- end of view
 
--- TERMINAR! FALTA LA PARTE DEL CALCULO DEL DOH
 
 -- ## Semana 4 - Parte A
 
@@ -603,6 +612,42 @@ from cte_sales2 s
 - `last_location` (el ultimo lugar donde se registro, de la columna `to_location` el producto/orden)
 - El nombre de la vista es `stg.vw_returns`*/
 
+
+drop view if exists stg.vw_returns;
+
+create or replace view stg.vw_returns as
+
+with cte_ret as (
+select 
+	r.*,
+	first_value (r.date) over (partition by return_id order by movement_id desc) as date_ret,
+	first_value (from_location) over (partition by return_id order by movement_id asc) as first_location,
+	last_value (to_location) over (partition by return_id order by movement_id asc rows between unbounded preceding and unbounded following) as last_location
+from stg.return_movements r
+order by return_id, movement_id 
+)
+select 
+	r.order_id,
+	r.item,
+	r.date_ret,
+	r.first_location,
+	r.last_location,
+	pm.name,
+	pm.category,
+	pm.subcategory,
+	pm.subsubcategory,
+	avg(r.quantity) as quantity_returned,
+	avg(s.line_cost_usd * r.quantity) as sale_returned_usd
+from cte_ret r
+left join stg.product_master pm
+on r.item = pm.product_code
+left join stg.vw_order_line_sale_usd s
+on ( s.order_number = r.order_id ) and ( s.product = r.item )
+group by 1,2,3,4,5,6,7,8,9
+order by order_id, item
+-- end of view
+
+
 -- 5. Crear una tabla calendario llamada stg.date con las fechas del 2022 incluyendo el año fiscal y trimestre fiscal (en ingles Quarter). El año fiscal de la empresa comienza el primero Febrero de cada año y dura 12 meses. Realizar la tabla para 2022 y 2023. La tabla debe contener:
 /* - Fecha (date) `date`
 - Mes (date) `month`
@@ -617,10 +662,94 @@ from cte_sales2 s
 - Nota: En general una tabla date es creada para muchos años mas (minimo 10), en este caso vamos a realizarla para el 2022 y 2023 nada mas.. 
 */
 
+select
+		to_char (date, 'yyyymmdd'):: INT as date_id,
+		cast(date as date) as date,
+		extract(month from date) as month,
+		extract(year from date) as year,
+		extract(day from date) as day,
+		to_char(date, 'Day') as weekday,
+		to_char(date, 'D') as weekday_number,
+		to_char(date, 'Month') as month_label,
+		case when
+			to_char(date, 'D') = '1' or -- Sunday
+			to_char(date, 'D') = '7'  -- Saturday
+			then
+				True
+			Else
+				False
+			End as is_weekend,
+			(CASE 
+            WHEN EXTRACT(MONTH FROM date) < 2 THEN EXTRACT(YEAR FROM date) - 1 
+            ELSE EXTRACT(YEAR FROM date) END || '-02-01')::date AS fiscal_year,
+		CONCAT('FY',CASE 
+            WHEN EXTRACT(MONTH FROM date) < 2 THEN EXTRACT(YEAR FROM date) - 1 
+            ELSE EXTRACT(YEAR FROM date) END) AS fiscal_year_label,
+		CASE 
+          WHEN EXTRACT(MONTH FROM date) BETWEEN 2 AND 4 THEN 'Q1'
+          WHEN EXTRACT(MONTH FROM date) BETWEEN 5 AND 7 THEN 'Q2'
+          WHEN EXTRACT(MONTH FROM date) BETWEEN 8 AND 10 THEN 'Q3'
+          ELSE 'Q4'	
+		END AS fiscal_quarter_label,
+		CAST( date - interval '1 year' AS date)::date AS date_ly,
+			
+from 	
+	(select 	
+	 	cast ('2022-01-01' as date) + (n || 'day') :: interval as date
+	from generate_series(0,729) n ) dd;  -- 365dias/anio * 2anios - 1 = 729dias (le resto 1 porque arranca de 0)
+
+
+
 -- ## Semana 4 - Parte B
 
 -- 1. Calcular el crecimiento de ventas por tienda mes a mes, con el valor nominal y el valor % de crecimiento. Utilizar self join.
 
+with cte_sales as(
+select 
+	store,
+	cast(date_trunc('month', ols.date) as date) mes,
+	sum(sale_usd) gross_sales_usd
+from stg.vw_order_line_sale_usd ols
+group by store, mes
+order by store, mes
+), 
+cte_sales2 as (
+select 
+	s.*, 
+	s2.mes as prev_month,
+	s2.gross_sales_usd as gross_sales_usd_prev_month
+from cte_sales s
+inner join cte_sales s2
+on (s.store = s2.store) and (s.mes = s2.mes + interval '1 month')
+)
+-- select * from cte_sales2
+
+select 
+	s.*,
+	(gross_sales_usd  - gross_sales_usd_prev_month) as absolute_growth, 
+	(((gross_sales_usd  - gross_sales_usd_prev_month)*1.00/(gross_sales_usd*1.00)))*100 as relative_growth 
+from cte_sales2 s
+
 -- 2. Hacer un update a la tabla de stg.product_master agregando una columna llamada brand, con la marca de cada producto con la primer letra en mayuscula. Sabemos que las marcas que tenemos son: Levi's, Tommy Hilfiger, Samsung, Phillips, Acer, JBL y Motorola. En caso de no encontrarse en la lista usar Unknown.
 
+alter table stg.product_master
+add brand varchar(255)
+
+update stg.product_master
+set brand = 
+	case		
+		when lower(name) like '%levi''s%' then 'Levi''s'
+		when lower(name) like '%tommy hilfiger%' then 'Tommy Hilfiger'
+  		when lower(name) like '%samsung%' then 'Samsung'
+  		when lower(name) like '%philips%' then 'Phillips'
+  		when lower(name) like '%acer%' then 'Acer'
+  		when lower(name) like '%jbl%' then 'JBL'
+  		when lower(name) like '%motorola%' then 'Motorola'
+  	else 'Unknown'
+	end
+
 -- 3. Un jefe de area tiene una tabla que contiene datos sobre las principales empresas de distintas industrias en rubros que pueden ser competencia y nos manda por mail la siguiente informacion: (ver informacion en md file)
+
+
+
+
