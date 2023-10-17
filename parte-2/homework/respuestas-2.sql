@@ -1,4 +1,6 @@
-eo-- ## Semana 3 - Parte A
+-- RESPUESTAS MAXI PERUCHENA 
+	
+-- ## Semana 3 - Parte A
 
 -- 1.Crear una vista con el resultado del ejercicio donde unimos la cantidad de gente que ingresa a tienda usando los dos sistemas.(tablas market_count y super_store_count)
 -- . Nombrar a la lista `stg.vw_store_traffic`
@@ -750,6 +752,47 @@ set brand =
 
 -- 3. Un jefe de area tiene una tabla que contiene datos sobre las principales empresas de distintas industrias en rubros que pueden ser competencia y nos manda por mail la siguiente informacion: (ver informacion en md file)
 
+create schema test
+
+create table test.facturacion
+(
+	empresa varchar(255) not null,
+	rubro varchar(255) not null,
+	facturacion numeric not null
+)
+
+insert into test.facturacion (empresa, rubro, facturacion)
+values ('El Corte Ingles','Departamental', 110990000000000); -- $110.99Billons
+
+insert into test.facturacion (empresa, rubro, facturacion)
+values ('Mercado Libre','ECOMMERCE', 115860000000000); --$115.86B
+
+insert into test.facturacion (empresa, rubro, facturacion)
+values ('Fallabela','departamental', 20460000);  --$20.46M
+
+insert into test.facturacion (empresa, rubro, facturacion)
+values ('Tienda Inglesa','Departamental', 10780000);  --$10,78M
+
+insert into test.facturacion (empresa, rubro, facturacion)
+values ('Zara','INDUMENTARIA', 999980000); -- $999.98M
 
 
+with cte_facturacion_por_rubro as (
+	SELECT case 
+		  when lower(rubro) like '%ecommerce%' then 'ecommerce'
+		  when lower(rubro) like '%indumentaria%' then 'indumentaria'
+		  when lower(rubro) like '%departamental%' then 'departamental'
+		  end as rubro,
+	sum(facturacion) as facturacion_total
+FROM test.facturacion
+group by lower(rubro)
+order by rubro asc)
 
+select 
+		rubro, 
+		case 
+        	when (facturacion_total >= 1000000000000 ) then CONCAT(CAST(ROUND(facturacion_total/1000000000000.0, 2) AS VARCHAR), 'B')
+			when (facturacion_total >= 1000000 ) then CONCAT(CAST(ROUND(facturacion_total/1000000, 2) AS VARCHAR), 'M')
+			else CAST(ROUND(facturacion_total, 2) AS VARCHAR)
+		end as facturacion_total
+from cte_facturacion_por_rubro
