@@ -693,13 +693,15 @@ select
           WHEN EXTRACT(MONTH FROM date) BETWEEN 8 AND 10 THEN 'Q3'
           ELSE 'Q4'	
 		END AS fiscal_quarter_label,
-		CAST( date - interval '1 year' AS date)::date AS date_ly,
+		CAST( date - interval '1 year' AS date)::date AS date_ly
+		
+into	
+	stg.date
 			
 from 	
 	(select 	
 	 	cast ('2022-01-01' as date) + (n || 'day') :: interval as date
 	from generate_series(0,729) n ) dd;  -- 365dias/anio * 2anios - 1 = 729dias (le resto 1 porque arranca de 0)
-
 
 
 -- ## Semana 4 - Parte B
