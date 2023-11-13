@@ -14,4 +14,5 @@ CREATE TABLE IF NOT EXISTS dim.product_master
                             , is_active       boolean
                             , has_bluetooth   boolean
                             , size            VARCHAR(20)
+				    , brand 	    VARCHAR(20)
 );
