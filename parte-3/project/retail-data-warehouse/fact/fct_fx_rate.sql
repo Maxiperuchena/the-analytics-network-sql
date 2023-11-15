@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS fct.fx_rate
     fx_rate_usd_uru numeric,
 		
 	-- declaro las foreign keys y las relaciono con las dim
+	CONSTRAINT fx_rate_month_key UNIQUE (month),
 	constraint fk_date
 		foreign key (month)
 		references dim.date(date)
