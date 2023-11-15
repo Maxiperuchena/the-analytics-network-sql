@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS fct.order_line_sale
     currency character varying(3) COLLATE pg_catalog."default",
     pos smallint,
     is_walkout boolean,
+    line_key VARCHAR(255),
 	
 	-- declaro las foreign keys y las relaciono con las dim
 	constraint fk_store_id
