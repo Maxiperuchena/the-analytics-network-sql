@@ -2,11 +2,12 @@ DROP TABLE IF EXISTS fct.store_traffic;
 
 CREATE TABLE IF NOT EXISTS fct.store_traffic
 (
-	store_id smallint,
+    store_id smallint,
     date date,
     traffic smallint,
 		
 	-- declaro las foreign keys y las relaciono con las dim
+	CONSTRAINT unique_store_id_date UNIQUE (store_id, date), -- declaro esta constante para que pueda utilizar el SP creado. Sino me da error: ERROR:  no hay restricción única o de exclusión que coincida con la especificación ON CONFLICT
 	constraint fk_store_id
 		foreign key (store_id)
 		references dim.store_master(store_id),
