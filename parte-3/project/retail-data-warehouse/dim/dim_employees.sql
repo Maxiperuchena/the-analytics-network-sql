@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS dim.employees
     province character varying(50) COLLATE pg_catalog."default",
     store_id smallint,
     position character varying(255) COLLATE pg_catalog."default",
+    duration integer,
 	constraint fk_store_id
 		foreign key (store_id)
 		references dim.store_master(store_id)	
