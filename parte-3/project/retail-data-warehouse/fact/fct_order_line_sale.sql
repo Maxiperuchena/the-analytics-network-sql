@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS fct.order_line_sale
     line_key VARCHAR(255),
 	
 	-- declaro las foreign keys y las relaciono con las dim
+	CONSTRAINT order_line_sale_line_key UNIQUE (line_key),
 	constraint fk_store_id
 		foreign key (store_id)
 		references dim.store_master(store_id),
