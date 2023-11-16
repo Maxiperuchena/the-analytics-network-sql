@@ -40,7 +40,7 @@ select
 	received_by,
 	date
 from
-  stg_inv 
+  stg_ret 
 on conflict(return_id,movement_id) do nothing;
 
 --sp de log
