@@ -1,4 +1,12 @@
- -- SP FCT - Order Line Sale
+-- Modifico la tabla OLS antes de hacer el SP
+-- Agrego columna line_key
+alter table fct.order_line_sale
+add line_key VARCHAR(255);
+--agrego constante de unicidad en line_key para que me funcione el "on conflict do nothing"
+alter table fct.order_line_sale
+add unique (line_key);
+
+-- SP FCT - Order Line Sale
 create or replace procedure etl.sp_fct_order_line_sale() 
 language plpgsql as $$
 
@@ -51,4 +59,4 @@ END;
 $$;
 -- end of SP
 select * from fct.order_line_sale
-call etl.sp_order_line_sale()
+call etl.sp_fct_order_line_sale()
