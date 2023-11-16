@@ -1,31 +1,63 @@
-DROP TABLE IF EXISTS fct.order_line_sale;
+-- Modifico la tabla OLS antes de hacer el SP
+-- Agrego columna line_key
+alter table fct.order_line_sale
+add line_key VARCHAR(255);
+--agrego constante de unicidad en line_key para que me funcione el "on conflict do nothing"
+alter table fct.order_line_sale
+add unique (line_key);
 
-CREATE TABLE IF NOT EXISTS fct.order_line_sale
-(
-    order_number character varying(255) PRIMARY KEY COLLATE pg_catalog."default",
-    product_id VARCHAR(10) COLLATE pg_catalog."default",
-    store_id smallint,
-    date date,
-    quantity integer,
-    sale numeric(18,5),
-    promotion numeric(18,5),
-    tax numeric(18,5),
-    credit numeric(18,5),
-    currency character varying(3) COLLATE pg_catalog."default",
-    pos smallint,
-    is_walkout boolean,
-    line_key VARCHAR(255),
-	
-	-- declaro las foreign keys y las relaciono con las dim
-	CONSTRAINT order_line_sale_line_key UNIQUE (line_key),
-	constraint fk_store_id
-		foreign key (store_id)
-		references dim.store_master(store_id),
-	constraint fk_product_id
-		foreign key (product_id)
-		references dim.product_master(product_id),
-	constraint fk_date
-		foreign key (date)
-		references dim.date(date)
-	
-);
+
+-- SP FCT - Order Line Sale
+create or replace procedure etl.sp_fct_order_line_sale() 
+language plpgsql as $$
+
+-- declaracion de variables
+DECLARE username varchar(10) := current_user;
+BEGIN username := current_user;
+
+--transformacion
+with stg_ols as (
+select 
+	order_number,
+	product,
+	store,
+	date,
+	quantity,
+	sale,
+	promotion,
+	tax,
+	credit,
+	currency,
+	pos,
+	is_walkout,
+	concat( order_number, '-', product) as line_key
+from stg.order_line_sale
+)
+
+--insert
+insert into fct.order_line_sale
+select
+  	order_number,
+	product,
+	store,
+	date,
+	quantity,
+	sale,
+	promotion,
+	tax,
+	credit,
+	currency,
+	pos,
+	is_walkout,
+	line_key
+from
+  stg_ols 
+on conflict(line_key) do nothing;
+
+--sp de log
+call etl.log('fct.order_line_sale', current_date, 'sp_fct_order_line_sale',username);
+END;
+$$;
+-- end of SP
+select * from fct.order_line_sale
+call etl.sp_fct_order_line_sale()
